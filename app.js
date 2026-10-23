@@ -1,7 +1,10 @@
-import { Timer, formatTime } from './timer.mjs';
-import { Soundscape, moods } from './soundscape.mjs';
-import { quotes, dailyQuoteIndex, dayGreeting } from './quotes.mjs';
+import { initSpace } from './space.mjs?v=5efd3606c7c5';
+import { Timer, formatTime } from './timer.mjs?v=5efd3606c7c5';
+import { Soundscape, moods } from './soundscape.mjs?v=5efd3606c7c5';
+import { quotes, dailyQuoteIndex, dayGreeting } from './quotes.mjs?v=5efd3606c7c5';
 const $ = selector => document.querySelector(selector);
+const space = initSpace();
+function setText(selector, value) { const element = $(selector); if (element.textContent !== value) element.textContent = value; }
 const key = 'little-duck-v1';
 let stored;
 try { stored = JSON.parse(localStorage.getItem(key)); } catch {}
@@ -22,6 +25,17 @@ let musicRequest = 0;
 let volume = Number.isFinite(stored?.volume) ? Math.min(1, Math.max(0, stored.volume)) : .3;
 let quoteIndex = dailyQuoteIndex();
 let lastQuoteDay = new Date().toDateString();
+let quoteAuto = stored?.quoteAuto !== false;
+let linkMusic = stored?.linkMusic === true;
+$('#link-music').checked = linkMusic;
+$('#link-music').addEventListener('change', event => { linkMusic = event.target.checked; save(); });
+function renderQuoteOptions() {
+  $('#quote-auto').setAttribute('aria-pressed', String(quoteAuto));
+  $('#quote-auto').innerHTML = quoteAuto ? '<span aria-hidden="true">Ⅱ</span> Pause notes' : '<span aria-hidden="true">▶</span> Resume notes';
+  $('#quote-cadence').textContent = quoteAuto ? 'A fresh note every 30 seconds' : 'Stay with this little note';
+}
+$('#quote-auto').addEventListener('click', () => { quoteAuto = !quoteAuto; save(); renderQuoteOptions(); });
+renderQuoteOptions();
 $('#calm-volume').value = String(volume * 100);
 function showQuote() {
   $('#quote').textContent = quotes[quoteIndex];
@@ -30,7 +44,7 @@ function showQuote() {
 showQuote();
 $('#next-quote').addEventListener('click', () => { quoteIndex = (quoteIndex + 1) % quotes.length; showQuote(); });
 setInterval(() => {
-  if (document.hidden) return;
+  if (document.hidden || $('#quotes-panel').hidden || !quoteAuto) return;
   const today = new Date().toDateString();
   quoteIndex = today !== lastQuoteDay ? dailyQuoteIndex() : (quoteIndex + 1) % quotes.length;
   lastQuoteDay = today; showQuote();
@@ -42,6 +56,7 @@ function renderCalm() {
   $('#calm-label').textContent = song ? `${song.title}${calmPlaying ? ' · playing' : ''}` : 'Pick your little soundtrack';
   $('#calm-hint').textContent = song?.hint || 'Different feelings, different little melodies.';
   $('#calm-play').textContent = calmPlaying ? 'Ⅱ' : '▶';
+  updateActivity();
   document.querySelectorAll('[data-mood]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mood === mood)));
 }
 async function playMood() {
@@ -70,7 +85,7 @@ function toast(message) {
   toastTimeout = setTimeout(() => { $('#toast').hidden = true; }, 4500);
 }
 function save() {
-  try { localStorage.setItem(key, JSON.stringify({ timer: timer.snapshot(), name, hint, sound, tiny, volume, mood })); }
+  try { localStorage.setItem(key, JSON.stringify({ timer: timer.snapshot(), name, hint, sound, tiny, volume, mood, quoteAuto, linkMusic })); }
   catch { if (!storageNotice) { storageNotice = true; toast('Your browser could not save this timer. Keep this tab open.'); } }
 }
 async function unlockAudio() {
@@ -100,6 +115,7 @@ function chime() {
     gain.gain.linearRampToValueAtTime(.085, at + .06);
     gain.gain.exponentialRampToValueAtTime(.001, at + 1.3);
     oscillator.connect(gain); gain.connect(audio.destination);
+    oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
     oscillator.start(at); oscillator.stop(at + 1.4);
   });
 }
@@ -107,10 +123,10 @@ function stopAlarm() { clearInterval(alarm); alarm = null; }
 function render() {
   const { state, remaining, duration } = timer;
   const text = formatTime(remaining);
-  $('#clock').textContent = text;
+  setText('#clock', text);
   $('#clock').setAttribute('aria-label', `${text.replace(':', ' minutes ')} seconds remaining`);
-  $('#timer-name').textContent = name;
-  $('#timer-hint').textContent = hint;
+  setText('#timer-name', name);
+  setText('#timer-hint', hint);
   const portion = Math.min(1, Math.max(0, remaining / duration));
   $('#progress').style.width = `${portion * 100}%`;
   $('#watch-progress').style.strokeDashoffset = String(175.93 * (1 - portion));
@@ -119,25 +135,27 @@ function render() {
   $('#scene').classList.toggle('done', state === 'done');
   document.body.classList.toggle('tiny', tiny);
   $('#mini').setAttribute('aria-pressed', String(tiny));
-  $('#mini').innerHTML = tiny ? '<span aria-hidden="true">↗</span> Full mode' : '<span aria-hidden="true">↙</span> Tiny mode';
-  $('#sound-label').textContent = sound ? '♫ Sound on' : '♪ Sound off';
+  setText('#mini', tiny ? 'Spacious view' : 'Compact view');
+  setText('#sound-label', sound ? '♫ Sound on' : '♪ Sound off');
   const labels = { idle: ['▶', 'Start timer'], running: ['Ⅱ', 'Pause timer'], paused: ['▶', 'Keep going'], done: ['✓', 'Thank you, Delina!'] };
   const startLabel = `<span aria-hidden="true">${labels[state][0]}</span> ${labels[state][1]}`;
   if ($('#start').innerHTML !== startLabel) $('#start').innerHTML = startLabel;
-  $('#duck-caption').textContent = { idle: 'Delina is ready when you are.', running: 'Delina is keeping an eye on things.', paused: 'A little breather. Delina can wait.', done: 'Quack, quack! Your moment is ready.' }[state];
+  setText('#duck-caption', { idle: 'Delina is ready when you are.', running: 'Delina is keeping an eye on things.', paused: 'A little breather. Delina can wait.', done: 'Quack, quack! Your moment is ready.' }[state]);
   const status = { idle: 'A little pause before something lovely.', running: 'Take a breath. Delina has the timing covered.', paused: 'Paused. Take all the time you need.', done: 'Time’s up! Something lovely is waiting.' }[state];
   if ($('#timer-status').textContent !== status) $('#timer-status').textContent = status;
-  document.title = state === 'idle' ? 'Delina · Your little duck timer' : state === 'done' ? 'Time’s up! · Delina' : `${text} · Delina`;
-  document.querySelectorAll('.preset').forEach(button => {
+  document.title = state === 'idle' ? 'Delina · Your little space' : state === 'done' ? 'Time’s up! · Delina' : `${text} · Delina`;
+  document.querySelectorAll('.preset, .quick-time').forEach(button => {
     const selected = Number(button.dataset.seconds) === duration && button.dataset.name === name;
     button.classList.toggle('selected', selected); button.setAttribute('aria-pressed', String(selected));
   });
   if (state === 'done' && lastState !== 'done') {
+    if (linkMusic && calmPlaying) { ++musicRequest; calm.stop(); calmPlaying = false; renderCalm(); }
     chime(); stopAlarm();
     alarm = setInterval(chime, 6500);
     save();
   }
   lastState = state;
+  updateActivity();
 }
 $('#start').addEventListener('click', () => {
   unlockAudio();
@@ -147,14 +165,14 @@ $('#start').addEventListener('click', () => {
   save(); render();
 });
 $('#reset').addEventListener('click', () => { stopAlarm(); timer.reset(); save(); render(); });
-document.querySelectorAll('.preset').forEach(button => button.addEventListener('click', () => {
+document.querySelectorAll('.preset, .quick-time').forEach(button => button.addEventListener('click', () => {
   stopAlarm(); timer.set(Number(button.dataset.seconds));
   name = button.dataset.name; hint = button.dataset.hint; save(); render();
 }));
-$('#sound').addEventListener('change', event => {
+$('#sound').addEventListener('change', async event => {
   sound = event.target.checked;
-  if (sound) { unlockAudio(); setTimeout(chime, 100); }
   save(); render();
+  if (sound && await unlockAudio()) chime();
 });
 $('#mini').addEventListener('click', () => { tiny = !tiny; save(); render(); });
 $('#custom').addEventListener('click', () => {
@@ -173,6 +191,18 @@ $('#custom-form').addEventListener('submit', event => {
   stopAlarm(); name = $('#label').value.trim() || 'A moment of your own'; hint = 'A little time for whatever you need.';
   $('#custom-dialog').close(); save(); render();
 });
+function updateActivity() {
+  const timerHidden = $('#timer-panel').hidden && timer.state !== 'idle';
+  const musicHidden = $('#music-panel').hidden && calmPlaying;
+  $('#timer-activity').hidden = !timerHidden;
+  $('#music-activity').hidden = !musicHidden;
+  setText('#timer-activity', `Timer · ${timer.state === 'done' ? 'time’s up' : formatTime(timer.remaining)}${timer.state === 'paused' ? ' · paused' : ''} ↗`);
+  setText('#music-activity', `Music · ${moods[mood]?.name || 'playing'} ↗`);
+  $('#background-activity').hidden = !(timerHidden || musicHidden);
+}
+$('#timer-activity').addEventListener('click', () => space.show('timer'));
+$('#music-activity').addEventListener('click', () => space.show('music'));
+document.addEventListener('delina:features', updateActivity);
 setInterval(() => { timer.tick(); render(); }, 200);
 document.addEventListener('visibilitychange', () => { timer.tick(); render(); });
 window.addEventListener('pagehide', () => { ++musicRequest; save(); if (calm) calm.stop(); calmPlaying = false; renderCalm(); });
