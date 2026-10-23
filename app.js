@@ -1,7 +1,7 @@
-import { initSpace } from './space.mjs?v=5efd3606c7c5';
-import { Timer, formatTime } from './timer.mjs?v=5efd3606c7c5';
-import { Soundscape, moods } from './soundscape.mjs?v=5efd3606c7c5';
-import { quotes, dailyQuoteIndex, dayGreeting } from './quotes.mjs?v=5efd3606c7c5';
+import { initSpace } from './space.mjs?v=887ac35ece83';
+import { Timer, formatTime } from './timer.mjs?v=887ac35ece83';
+import { Soundscape, moods, resumeAudio } from './soundscape.mjs?v=887ac35ece83';
+import { quotes, dailyQuoteIndex, dayGreeting } from './quotes.mjs?v=887ac35ece83';
 const $ = selector => document.querySelector(selector);
 const space = initSpace();
 function setText(selector, value) { const element = $(selector); if (element.textContent !== value) element.textContent = value; }
@@ -53,8 +53,8 @@ function renderCalm() {
   const song = moods[mood];
   $('#calm-toggle').disabled = !song;
   $('#calm-toggle').setAttribute('aria-pressed', String(calmPlaying));
-  $('#calm-label').textContent = song ? `${song.title}${calmPlaying ? ' · playing' : ''}` : 'Pick your little soundtrack';
-  $('#calm-hint').textContent = song?.hint || 'Different feelings, different little melodies.';
+  $('#calm-label').textContent = song ? `${song.title}${calmPlaying ? (volume === 0 ? ' · muted' : ' · playing') : ''}` : 'Pick your little soundtrack';
+  $('#calm-hint').textContent = volume === 0 && song ? 'Volume is zero. Move the slider to hear your melody.' : song?.hint || 'Different feelings, different little melodies.';
   $('#calm-play').textContent = calmPlaying ? 'Ⅱ' : '▶';
   updateActivity();
   document.querySelectorAll('[data-mood]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mood === mood)));
@@ -62,7 +62,14 @@ function renderCalm() {
 async function playMood() {
   const request = ++musicRequest;
   if (!await unlockAudio() || request !== musicRequest) return;
-  calm?.stop(); calm = new Soundscape(audio, volume, mood); calm.start(); calmPlaying = true; renderCalm();
+  try {
+    calm?.stop(); calm = new Soundscape(audio, volume, mood); calm.start(); calmPlaying = true;
+  } catch (error) {
+    calm?.stop(); calmPlaying = false;
+    console.error('Delina music could not start:', error);
+    toast('Music could not start. Tap play to try again.');
+  }
+  renderCalm();
 }
 document.querySelectorAll('[data-mood]').forEach(button => button.addEventListener('click', () => {
   mood = button.dataset.mood; save(); renderCalm(); playMood();
@@ -75,7 +82,7 @@ renderCalm();
 $('#calm-volume').addEventListener('input', event => {
   volume = Number(event.target.value) / 100;
   if (calmPlaying) calm.setVolume(volume);
-  save();
+  renderCalm(); save();
 });
 $('#sound').checked = sound;
 function toast(message) {
@@ -90,18 +97,24 @@ function save() {
 }
 async function unlockAudio() {
   try {
-    if (!audio) {
-      audio = new (window.AudioContext || window.webkitAudioContext)();
+    if (!audio || audio.state === 'closed') {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) throw new Error('Web Audio is unavailable in this browser');
+      audio = new AudioContext();
       audio.addEventListener('statechange', () => {
         if (audio.state !== 'running' && calmPlaying) {
-          calm.stop(); calmPlaying = false; renderCalm();
+          ++musicRequest; calm.stop(); calmPlaying = false; renderCalm();
+          toast('Music paused by your browser. Tap play to continue.');
         }
       });
     }
-    await audio.resume();
-    if (audio.state !== 'running') throw new Error('Sound is paused');
+    // resumeAudio calls resume before its first await, preserving the user gesture.
+    await resumeAudio(audio);
     return true;
-  } catch { toast('Tap again to enable sound. Delina will still show when time is up.'); return false; }
+  } catch (error) {
+    console.warn('Delina audio is unavailable:', error);
+    toast('Sound could not start. Check device volume and browser sound settings, then tap play again.'); return false;
+  }
 }
 function chime() {
   if (!sound || !audio || audio.state !== 'running') return;

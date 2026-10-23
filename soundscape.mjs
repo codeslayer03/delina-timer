@@ -11,11 +11,12 @@ export class Soundscape {
     this.context = context;
     this.song = moods[mood] || moods.overwhelmed;
     this.master = context.createGain();
-    this.master.gain.value = volume;
+    // Keep gentle melodies audible at the default volume, including on small speakers.
+    this.master.gain.value = volume * 3;
     this.master.connect(context.destination);
     this.notes = new Set(); this.index = 0; this.stopped = false;
   }
-  setVolume(value) { if (!this.stopped) this.master.gain.setTargetAtTime(value, this.context.currentTime, .15); }
+  setVolume(value) { if (!this.stopped) this.master.gain.setTargetAtTime(value * 3, this.context.currentTime, .15); }
   start() {
     if (this.interval || this.stopped) return;
     this.next = this.context.currentTime + .1; this.schedule();
@@ -27,7 +28,8 @@ export class Soundscape {
     while (this.next < now + .3) {
       const frequency = 440 * 2 ** ((this.song.notes[this.index++ % this.song.notes.length] - 69) / 12);
       this.note(frequency, this.next, this.song.level);
-      if (this.song.shimmer) this.note(frequency * 2, this.next + .015, this.song.level * this.song.shimmer);
+      // A quiet octave gives low moods some presence on phone speakers.
+      this.note(frequency * 2, this.next + .015, this.song.level * (.28 + this.song.shimmer));
       this.next += this.song.pace;
     }
   }
@@ -48,4 +50,16 @@ export class Soundscape {
     for (const oscillator of this.notes) oscillator.stop(this.context.currentTime + .5);
     if (!this.notes.size) this.master.disconnect();
   }
+}
+
+// Invoked from a user gesture; bounded so a suspended browser cannot hang play.
+export async function resumeAudio(context, timeoutMs = 3000) {
+  let timeout;
+  try {
+    await Promise.race([
+      context.resume(),
+      new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Audio resume timed out')), timeoutMs); })
+    ]);
+    if (context.state !== 'running') throw new Error('Sound is paused');
+  } finally { clearTimeout(timeout); }
 }
