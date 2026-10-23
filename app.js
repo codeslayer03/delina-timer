@@ -1,9 +1,11 @@
-import { initSpace } from './space.mjs?v=887ac35ece83';
-import { Timer, formatTime } from './timer.mjs?v=887ac35ece83';
-import { Soundscape, moods, resumeAudio } from './soundscape.mjs?v=887ac35ece83';
-import { quotes, dailyQuoteIndex, dayGreeting } from './quotes.mjs?v=887ac35ece83';
+import { initCat } from './cat.mjs?v=7b989943bf31';
+import { initSpace } from './space.mjs?v=7b989943bf31';
+import { Timer, formatTime } from './timer.mjs?v=7b989943bf31';
+import { Soundscape, moods, resumeAudio } from './soundscape.mjs?v=7b989943bf31';
+import { quotes, dailyQuoteIndex, dayGreeting } from './quotes.mjs?v=7b989943bf31';
 const $ = selector => document.querySelector(selector);
 const space = initSpace();
+initCat();
 function setText(selector, value) { const element = $(selector); if (element.textContent !== value) element.textContent = value; }
 const key = 'little-duck-v1';
 let stored;
@@ -20,9 +22,32 @@ let toastTimeout;
 let storageNotice = false;
 let calm;
 let calmPlaying = false;
+let phoneMode = stored?.phoneMode === true;
+const phonePlayer = $('#phone-player');
+function stopMusic() { calm?.stop(); phonePlayer.pause(); calmPlaying = false; }
+function phoneSource(mood) {
+  const url = new URL(`./music-${mood}.wav`, import.meta.url);
+  url.search = new URL(import.meta.url).search;
+  return url.href;
+}
+function renderPhoneMode() {
+  phonePlayer.hidden = !phoneMode || !mood;
+  if (phoneMode && mood && !phonePlayer.getAttribute('src')) phonePlayer.src = phoneSource(mood);
+  if (phoneMode) document.querySelector('.phone-audio-options').open = true;
+  $('#phone-mode').setAttribute('aria-pressed', String(phoneMode));
+  $('#phone-mode').textContent = phoneMode ? 'Use synthesized player' : 'Use phone player';
+}
+$('#phone-mode').addEventListener('click', () => {
+  ++musicRequest; stopMusic(); phoneMode = !phoneMode; renderPhoneMode(); renderCalm(); save();
+  if (phoneMode) toast('Phone player ready. Tap a mood or play. Use your phone’s volume buttons too.');
+});
+phonePlayer.addEventListener('playing', () => { if(phoneMode){calmPlaying = true; renderCalm();} });
+phonePlayer.addEventListener('pause', () => { if(phoneMode){calmPlaying = false; renderCalm();} });
+phonePlayer.addEventListener('error', () => { if(phoneMode){calmPlaying = false;renderCalm();toast('The phone melody could not load. Check your connection and tap a mood to retry.');} });
 let mood = Object.hasOwn(moods, stored?.mood) ? stored.mood : null;
 let musicRequest = 0;
 let volume = Number.isFinite(stored?.volume) ? Math.min(1, Math.max(0, stored.volume)) : .3;
+renderPhoneMode();
 let quoteIndex = dailyQuoteIndex();
 let lastQuoteDay = new Date().toDateString();
 let quoteAuto = stored?.quoteAuto !== false;
@@ -61,6 +86,25 @@ function renderCalm() {
 }
 async function playMood() {
   const request = ++musicRequest;
+  if (phoneMode) {
+    calm?.stop();
+    const source = phoneSource(mood);
+    phonePlayer.hidden = false;
+    if (phonePlayer.src !== source || phonePlayer.error) { phonePlayer.src = source; phonePlayer.load(); }
+    phonePlayer.volume = volume;
+    try {
+      // Call play directly in the gesture: do not await AudioContext first.
+      await phonePlayer.play();
+      if(request !== musicRequest) return;
+      calmPlaying = !phonePlayer.paused;
+    } catch(error) {
+      if(request !== musicRequest) return;
+      calmPlaying = false;
+      console.warn('Delina phone audio could not start:', error);
+      toast('Tap the phone player’s play button. Check media volume and your Bluetooth output.');
+    }
+    renderCalm(); return;
+  }
   if (!await unlockAudio() || request !== musicRequest) return;
   try {
     calm?.stop(); calm = new Soundscape(audio, volume, mood); calm.start(); calmPlaying = true;
@@ -75,13 +119,14 @@ document.querySelectorAll('[data-mood]').forEach(button => button.addEventListen
   mood = button.dataset.mood; save(); renderCalm(); playMood();
 }));
 $('#calm-toggle').addEventListener('click', () => {
-  if (calmPlaying) { ++musicRequest; calm.stop(); calmPlaying = false; renderCalm(); }
+  if (calmPlaying) { ++musicRequest; stopMusic(); renderCalm(); }
   else playMood();
 });
 renderCalm();
 $('#calm-volume').addEventListener('input', event => {
   volume = Number(event.target.value) / 100;
-  if (calmPlaying) calm.setVolume(volume);
+  if (calmPlaying && !phoneMode) calm.setVolume(volume);
+  phonePlayer.volume = volume;
   renderCalm(); save();
 });
 $('#sound').checked = sound;
@@ -92,18 +137,20 @@ function toast(message) {
   toastTimeout = setTimeout(() => { $('#toast').hidden = true; }, 4500);
 }
 function save() {
-  try { localStorage.setItem(key, JSON.stringify({ timer: timer.snapshot(), name, hint, sound, tiny, volume, mood, quoteAuto, linkMusic })); }
+  try { localStorage.setItem(key, JSON.stringify({ timer: timer.snapshot(), name, hint, sound, tiny, volume, mood, quoteAuto, linkMusic, phoneMode })); }
   catch { if (!storageNotice) { storageNotice = true; toast('Your browser could not save this timer. Keep this tab open.'); } }
 }
 async function unlockAudio() {
   try {
+    // Supported Safari versions can classify this as music instead of ambient effects.
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
     if (!audio || audio.state === 'closed') {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) throw new Error('Web Audio is unavailable in this browser');
       audio = new AudioContext();
       audio.addEventListener('statechange', () => {
-        if (audio.state !== 'running' && calmPlaying) {
-          ++musicRequest; calm.stop(); calmPlaying = false; renderCalm();
+        if (audio.state !== 'running' && calmPlaying && !phoneMode) {
+          ++musicRequest; stopMusic(); renderCalm();
           toast('Music paused by your browser. Tap play to continue.');
         }
       });
@@ -162,7 +209,7 @@ function render() {
     button.classList.toggle('selected', selected); button.setAttribute('aria-pressed', String(selected));
   });
   if (state === 'done' && lastState !== 'done') {
-    if (linkMusic && calmPlaying) { ++musicRequest; calm.stop(); calmPlaying = false; renderCalm(); }
+    if (linkMusic && calmPlaying) { ++musicRequest; stopMusic(); renderCalm(); }
     chime(); stopAlarm();
     alarm = setInterval(chime, 6500);
     save();
@@ -218,5 +265,5 @@ $('#music-activity').addEventListener('click', () => space.show('music'));
 document.addEventListener('delina:features', updateActivity);
 setInterval(() => { timer.tick(); render(); }, 200);
 document.addEventListener('visibilitychange', () => { timer.tick(); render(); });
-window.addEventListener('pagehide', () => { ++musicRequest; save(); if (calm) calm.stop(); calmPlaying = false; renderCalm(); });
+window.addEventListener('pagehide', () => { ++musicRequest; save(); stopMusic(); renderCalm(); });
 render();
