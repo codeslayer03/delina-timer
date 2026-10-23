@@ -1,4 +1,4 @@
-import { weatherLook, validPlace } from './weather-model.mjs?v=98d2337a5beb';
+import { weatherLook, validPlace } from './weather-model.mjs?v=cc6917e89bd0';
 const $ = selector => document.querySelector(selector);
 const key = 'delina-weather-v1';
 let place, controller, searchController, lastFetch = 0, weatherData, locationRequest = 0;

@@ -1,4 +1,4 @@
-import { FEATURES, validFeatures } from './space-model.mjs?v=98d2337a5beb';
+import { FEATURES, validFeatures } from './space-model.mjs?v=cc6917e89bd0';
 const $ = selector => document.querySelector(selector);
 const key = 'delina-space-v1';
 export function initSpace() {

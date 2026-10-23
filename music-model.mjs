@@ -13,3 +13,11 @@ export function musicTime(seconds) {
  const value=Number.isFinite(seconds)?Math.max(0,Math.floor(seconds)):0;
  return `${Math.floor(value/60)}:${String(value%60).padStart(2,'0')}`;
 }
+
+// Start synchronously in the user's tap; recover if a media request never settles.
+export async function playMedia(media, timeoutMs = 8000) {
+ let timeout;
+ try {
+  await Promise.race([media.play(),new Promise((_,reject)=>{timeout=setTimeout(()=>reject(new Error('Music loading timed out')),timeoutMs);})]);
+ } finally {clearTimeout(timeout);}
+}

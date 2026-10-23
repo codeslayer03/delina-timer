@@ -1,16 +1,21 @@
-import { initCat } from './cat.mjs?v=98d2337a5beb';
-import { nextTrack, trackOrder, musicTime, seekTime } from './music-model.mjs?v=98d2337a5beb';
-import { initSpace } from './space.mjs?v=98d2337a5beb';
-import { Timer, formatTime } from './timer.mjs?v=98d2337a5beb';
-import { Soundscape, moods, resumeAudio } from './soundscape.mjs?v=98d2337a5beb';
-import { quotes, dailyQuoteIndex, dayGreeting } from './quotes.mjs?v=98d2337a5beb';
-const $ = selector => document.querySelector(selector);
+import { initCat } from './cat.mjs?v=cc6917e89bd0';
+import { nextTrack, trackOrder, musicTime, seekTime, playMedia } from './music-model.mjs?v=cc6917e89bd0';
+import { initSpace } from './space.mjs?v=cc6917e89bd0';
+import { Timer, formatTime, TimerTicker } from './timer.mjs?v=cc6917e89bd0';
+import { moods, resumeAudio } from './soundscape.mjs?v=cc6917e89bd0';
+import { quotes, dailyQuoteIndex, dayGreeting } from './quotes.mjs?v=cc6917e89bd0';
+const elements = new Map();
+const $ = selector => {
+  if (!elements.has(selector)) elements.set(selector,document.querySelector(selector));
+  return elements.get(selector);
+};
 const space = initSpace();
 function setText(selector, value) { const element = $(selector); if (element.textContent !== value) element.textContent = value; }
 const key = 'little-duck-v1';
 let stored;
 try { stored = JSON.parse(localStorage.getItem(key)); } catch {}
 const timer = new Timer(stored?.timer);
+const ticker = new TimerTicker(timer, render, {hidden:()=>document.hidden});
 let name = typeof stored?.name === 'string' ? stored.name : 'A perfectly soft egg';
 let hint = typeof stored?.hint === 'string' ? stored.hint : 'A golden, runny little center.';
 let sound = stored?.sound !== false;
@@ -20,11 +25,9 @@ let alarm = null;
 let lastState;
 let toastTimeout;
 let storageNotice = false;
-let calm;
 let calmPlaying = false;
 let musicLoading = false;
 let musicError = false;
-let phoneMode = stored?.musicPlayerVersion === 2 ? stored.phoneMode !== false : true;
 let mood = Object.hasOwn(moods, stored?.mood) ? stored.mood : null;
 let feeling = stored?.feeling === null ? null : Object.hasOwn(moods, stored?.feeling) ? stored.feeling : mood;
 let musicRequest = 0;
@@ -36,50 +39,30 @@ const musicHistory = [];
 const phonePlayer = $('#phone-player');
 const panini = initCat({mood:feeling, onMoodChange(value) { feeling=value; panini.setMood(value); save(); }});
 function stopMusic() {
-  calm?.stop(); phonePlayer.pause(); calmPlaying = false; musicLoading = false;
+  phonePlayer.pause(); calmPlaying = false; musicLoading = false;
 }
 function phoneSource(value) {
   const url = new URL(`./music-${value}.wav`, import.meta.url);
   url.search = new URL(import.meta.url).search;
   return url.href;
 }
-function renderPhoneMode() {
-  phonePlayer.hidden = true;
-  $('#show-native-player').setAttribute('aria-expanded','false');
-  $('#show-native-player').textContent = 'Show browser audio controls';
-  if (phoneMode && mood && !phonePlayer.getAttribute('src')) phonePlayer.src = phoneSource(mood);
-  phonePlayer.loop = phoneMode && repeat === 'one';
-  $('#phone-mode').setAttribute('aria-pressed', String(phoneMode));
-  $('#phone-mode').textContent = phoneMode ? 'Use live tones instead' : 'Use audio-file player';
-  $('#show-native-player').hidden = !phoneMode;
-  $('#music-timeline').hidden = !phoneMode;
-  $('#music-repeat').disabled = !phoneMode;
-}
-$('#phone-mode').addEventListener('click', () => {
-  ++musicRequest; stopMusic(); phoneMode = !phoneMode; renderPhoneMode(); renderCalm(); save();
-});
-$('#show-native-player').addEventListener('click', () => {
-  phonePlayer.hidden = !phonePlayer.hidden;
-  $('#show-native-player').setAttribute('aria-expanded',String(!phonePlayer.hidden));
-  $('#show-native-player').textContent = phonePlayer.hidden ? 'Show browser audio controls' : 'Hide browser audio controls';
-});
-phonePlayer.addEventListener('playing', () => { if(phoneMode){calmPlaying = true; musicLoading = false; musicError = false; renderCalm();} });
-phonePlayer.addEventListener('pause', () => { if(phoneMode){calmPlaying = false; renderCalm();} });
-phonePlayer.addEventListener('waiting', () => { if(phoneMode && !phonePlayer.paused){musicLoading=true;renderCalm();} });
+phonePlayer.loop=repeat==='one';
+if(mood)phonePlayer.src=phoneSource(mood);
+phonePlayer.addEventListener('playing', () => { if(!phonePlayer.paused){calmPlaying = true; musicLoading = false; musicError = false; renderCalm();} });
+phonePlayer.addEventListener('pause', () => { calmPlaying = false; renderCalm(); });
+phonePlayer.addEventListener('waiting', () => { if(!phonePlayer.paused){musicLoading=true;renderCalm();} });
 phonePlayer.addEventListener('error', () => {
-  if(phoneMode){calmPlaying = false; musicLoading = false; musicError = true; renderCalm();toast('The melody could not load. Check your connection and tap play to retry.');}
+  calmPlaying = false; musicLoading = false; musicError = true; renderCalm();toast('The melody could not load. Check your connection and tap play to retry.');
 });
 phonePlayer.addEventListener('volumechange', () => {
-  if(phoneMode) { volume = phonePlayer.muted ? 0 : phonePlayer.volume; $('#calm-volume').value = String(volume*100); renderCalm(); save(); }
+  volume = phonePlayer.muted ? 0 : phonePlayer.volume; $('#calm-volume').value = String(volume*100); renderCalm(); save();
 });
 for(const event of ['loadedmetadata','durationchange','timeupdate','seeked']) phonePlayer.addEventListener(event, renderMusicTime);
 phonePlayer.addEventListener('ended', () => {
-  if(!phoneMode)return;
   if(repeat === 'all') skipTrack(1);
   else if(repeat === 'one') { phonePlayer.currentTime=0; playMood(); }
   else { calmPlaying=false; renderCalm(); }
 });
-renderPhoneMode();
 let quoteIndex = dailyQuoteIndex();
 let lastQuoteDay = new Date().toDateString();
 let quoteAuto = stored?.quoteAuto !== false;
@@ -107,16 +90,17 @@ setInterval(() => {
   lastQuoteDay = today; showQuote();
 }, 30000);
 function renderMusicTime() {
-  const duration = phoneMode && phonePlayer.src === phoneSource(mood) && Number.isFinite(phonePlayer.duration) ? phonePlayer.duration : 0;
+  if(document.hidden)return;
+  const duration = phonePlayer.src === phoneSource(mood) && Number.isFinite(phonePlayer.duration) ? phonePlayer.duration : 0;
   const current = duration ? seekTime(phonePlayer.currentTime,duration) : 0;
   $('#music-seek').disabled = !duration;
   $('#music-seek').value = duration ? String(Math.round(current/duration*1000)) : '0';
   $('#music-seek').setAttribute('aria-valuetext',`${musicTime(current)} of ${musicTime(duration)}`);
-  $('#music-elapsed').textContent = musicTime(current);
-  $('#music-duration').textContent = musicTime(duration || (mood ? moods[mood].notes.length*moods[mood].pace : 0));
+  setText('#music-elapsed',musicTime(current));
+  setText('#music-duration',musicTime(duration || (mood ? moods[mood].notes.length*moods[mood].pace : 0)));
   try {
     if(navigator.mediaSession?.setPositionState) {
-      if(phoneMode && duration) navigator.mediaSession.setPositionState({duration,playbackRate:phonePlayer.playbackRate,position:current});
+      if(duration) navigator.mediaSession.setPositionState({duration,playbackRate:phonePlayer.playbackRate,position:current});
       else navigator.mediaSession.setPositionState();
     }
   } catch {}
@@ -124,10 +108,10 @@ function renderMusicTime() {
 function renderCalm() {
   const song = moods[mood];
   $('#calm-toggle').setAttribute('aria-pressed', String(calmPlaying));
-  $('#calm-toggle').setAttribute('aria-label', calmPlaying || musicLoading ? 'Pause music' : 'Play music');
+  $('#calm-toggle').setAttribute('aria-label', musicLoading ? 'Cancel music loading' : calmPlaying ? 'Pause music' : 'Play music');
   $('#calm-label').textContent = song?.title || 'Pick your little soundtrack';
   $('#calm-hint').textContent = song?.hint || 'Different feelings, different little melodies.';
-  $('#calm-play').textContent = calmPlaying ? 'Ⅱ' : musicLoading ? '…' : '▶';
+  $('#calm-play').textContent = calmPlaying ? 'Ⅱ Pause' : musicLoading ? 'Cancel' : '▶ Play';
   $('#music-state').textContent = musicError ? 'Couldn’t play · tap play to retry' : musicLoading ? 'Getting your melody ready…' : !song ? 'Choose a mood to begin' : volume === 0 ? 'Muted · check volume' : calmPlaying ? 'Playing for you' : 'Ready when you are';
   $('#now-playing').dataset.mood = mood || 'neutral';
   $('#artwork-mood').textContent = song?.name || 'A little space for you';
@@ -135,6 +119,7 @@ function renderCalm() {
   $('#music-repeat').setAttribute('aria-pressed',String(repeat!=='off'));
   $('#music-repeat').setAttribute('aria-label',`Repeat ${repeat === 'one' ? 'one melody' : repeat === 'all' ? 'all melodies' : 'off'}`);
   $('#repeat-one').hidden=repeat!=='one';
+  setText('#music-modes', `${{one:'Repeat one melody',all:'Repeat all melodies',off:'Repeat off'}[repeat]}${shuffle ? ' · Shuffle on' : ''}`);
   $('#music-favorite').disabled=!song;
   $('#music-favorite').setAttribute('aria-pressed',String(favorites.includes(mood)));
   $('#music-favorite').setAttribute('aria-label', favorites.includes(mood) ? 'Remove melody from favorites' : 'Favorite this melody');
@@ -145,13 +130,13 @@ function renderCalm() {
   renderMusicTime(); updateActivity();
 }
 function selectTrack(value, changeFeeling = false) {
-  if(mood && mood !== value) musicHistory.push(mood);
+  if(mood && mood !== value) { musicHistory.push(mood); if(musicHistory.length>50)musicHistory.shift(); }
   mood=value; musicError=false;
   if(changeFeeling){feeling=value;panini.setMood(value);}
   save(); renderCalm(); playMood();
 }
 function skipTrack(direction) {
-  if(direction < 0 && phoneMode && phonePlayer.currentTime > 3) { phonePlayer.currentTime=0; renderMusicTime(); return; }
+  if(direction < 0 && phonePlayer.currentTime > 3) { phonePlayer.currentTime=0; renderMusicTime(); return; }
   if(direction < 0 && musicHistory.length) {
     mood=musicHistory.pop(); musicError=false; save();renderCalm();playMood();return;
   }
@@ -166,28 +151,20 @@ async function playMood() {
   if(!mood){mood='happy';save();}
   const request = ++musicRequest;
   musicLoading=true;musicError=false;renderCalm();updateMediaMetadata();
-  if (phoneMode) {
-    calm?.stop();
-    const source = phoneSource(mood);
-    if (phonePlayer.src !== source || phonePlayer.error) { phonePlayer.src = source; phonePlayer.load(); }
-    phonePlayer.loop=repeat==='one';
-    if (phonePlayer.volume !== volume) phonePlayer.volume = volume;
-    try {
-      await phonePlayer.play();
-      if(request !== musicRequest) return;
-      calmPlaying = !phonePlayer.paused;
-    } catch(error) {
-      if(request !== musicRequest) return;
-      calmPlaying=false;musicError=true;
-      console.warn('Delina music could not start:', error);
-      toast('Tap play to retry. Check media volume and Bluetooth output.');
-    } finally { if(request === musicRequest){musicLoading=false;renderCalm();} }
-    return;
-  }
-  if (!await unlockAudio() || request !== musicRequest) { if(request===musicRequest){musicLoading=false;musicError=true;renderCalm();} return; }
-  try { calm?.stop();calm=new Soundscape(audio,volume,mood);calm.start();calmPlaying=true; }
-  catch(error){calm?.stop();calmPlaying=false;musicError=true;console.error('Delina music could not start:',error);}
-  musicLoading=false;renderCalm();
+  const source = phoneSource(mood);
+  if (phonePlayer.src !== source || phonePlayer.error) { phonePlayer.src = source; phonePlayer.load(); }
+  phonePlayer.loop=repeat==='one';
+  if (phonePlayer.volume !== volume) phonePlayer.volume = volume;
+  try {
+    await playMedia(phonePlayer);
+    if(request !== musicRequest) return;
+    calmPlaying = !phonePlayer.paused;
+  } catch(error) {
+    if(request !== musicRequest) return;
+    phonePlayer.pause();calmPlaying=false;musicError=true;
+    console.warn('Delina music could not start:', error);
+    toast('Tap play to retry. Check media volume and Bluetooth output.');
+  } finally { if(request === musicRequest){musicLoading=false;renderCalm();} }
 }
 document.querySelectorAll('button[data-mood]').forEach(button => button.addEventListener('click', () => selectTrack(button.dataset.mood,true)));
 $('#calm-toggle').addEventListener('click', () => {
@@ -199,19 +176,18 @@ $('#music-previous').addEventListener('click',()=>skipTrack(-1));
 $('#music-shuffle').addEventListener('click',()=>{shuffle=!shuffle;save();renderCalm();});
 $('#music-repeat').addEventListener('click',()=>{repeat={one:'all',all:'off',off:'one'}[repeat];phonePlayer.loop=repeat==='one';save();renderCalm();});
 $('#music-favorite').addEventListener('click',()=>{if(!mood)return;favorites=favorites.includes(mood)?favorites.filter(value=>value!==mood):[...favorites,mood];save();renderCalm();});
-$('#music-seek').addEventListener('input',event=>{if(!phoneMode||!Number.isFinite(phonePlayer.duration))return;phonePlayer.currentTime=seekTime(Number(event.target.value)/1000*phonePlayer.duration,phonePlayer.duration);renderMusicTime();});
+$('#music-seek').addEventListener('input',event=>{if(!Number.isFinite(phonePlayer.duration))return;phonePlayer.currentTime=seekTime(Number(event.target.value)/1000*phonePlayer.duration,phonePlayer.duration);renderMusicTime();});
 $('#music-queue-toggle').addEventListener('click',()=>{$('#music-queue').hidden=!$('#music-queue').hidden;$('#music-queue-toggle').setAttribute('aria-expanded',String(!$('#music-queue').hidden));});
 for(const value of trackOrder){
   const item=document.createElement('li');const button=document.createElement('button');
   button.type='button';button.dataset.track=value;button.textContent=`${moods[value].name} · ${moods[value].title}`;button.addEventListener('click',()=>selectTrack(value));item.append(button);$('#music-queue').append(item);
 }
 if(navigator.mediaSession){
-  for(const [action,handler] of Object.entries({play:()=>playMood(),pause:()=>{++musicRequest;stopMusic();renderCalm();},nexttrack:()=>skipTrack(1),previoustrack:()=>skipTrack(-1),seekto:details=>{if(phoneMode && Number.isFinite(details.seekTime) && Number.isFinite(phonePlayer.duration)){phonePlayer.currentTime=seekTime(details.seekTime,phonePlayer.duration);renderMusicTime();}}}))try{navigator.mediaSession.setActionHandler(action,handler);}catch{}
+  for(const [action,handler] of Object.entries({play:()=>playMood(),pause:()=>{++musicRequest;stopMusic();renderCalm();},nexttrack:()=>skipTrack(1),previoustrack:()=>skipTrack(-1),seekto:details=>{if(Number.isFinite(details.seekTime) && Number.isFinite(phonePlayer.duration)){phonePlayer.currentTime=seekTime(details.seekTime,phonePlayer.duration);renderMusicTime();}}}))try{navigator.mediaSession.setActionHandler(action,handler);}catch{}
 }
 renderCalm();
 $('#calm-volume').addEventListener('input',event=>{
   volume=Number(event.target.value)/100;
-  if(calmPlaying && !phoneMode)calm.setVolume(volume);
   phonePlayer.muted=false;phonePlayer.volume=volume;renderCalm();save();
 });
 $('#sound').checked = sound;
@@ -222,7 +198,7 @@ function toast(message) {
   toastTimeout = setTimeout(() => { $('#toast').hidden = true; }, 4500);
 }
 function save() {
-  try { localStorage.setItem(key, JSON.stringify({ timer: timer.snapshot(), name, hint, sound, tiny, volume, mood, quoteAuto, linkMusic, phoneMode, musicPlayerVersion: 2, feeling, shuffle, repeat, favorites })); }
+  try { localStorage.setItem(key, JSON.stringify({ timer: timer.snapshot(), name, hint, sound, tiny, volume, mood, quoteAuto, linkMusic, musicPlayerVersion: 3, feeling, shuffle, repeat, favorites })); }
   catch { if (!storageNotice) { storageNotice = true; toast('Your browser could not save this timer. Keep this tab open.'); } }
 }
 async function unlockAudio() {
@@ -233,12 +209,6 @@ async function unlockAudio() {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) throw new Error('Web Audio is unavailable in this browser');
       audio = new AudioContext();
-      audio.addEventListener('statechange', () => {
-        if (audio.state !== 'running' && calmPlaying && !phoneMode) {
-          ++musicRequest; stopMusic(); renderCalm();
-          toast('Music paused by your browser. Tap play to continue.');
-        }
-      });
     }
     // resumeAudio calls resume before its first await, preserving the user gesture.
     await resumeAudio(audio);
@@ -294,13 +264,13 @@ function render() {
     button.classList.toggle('selected', selected); button.setAttribute('aria-pressed', String(selected));
   });
   if (state === 'done' && lastState !== 'done') {
-    if (linkMusic && calmPlaying) { ++musicRequest; stopMusic(); renderCalm(); }
+    if (linkMusic && (calmPlaying || musicLoading)) { ++musicRequest; stopMusic(); renderCalm(); }
     chime(); stopAlarm();
     alarm = setInterval(chime, 6500);
     save();
   }
   lastState = state;
-  updateActivity();
+  updateActivity();ticker.sync();
 }
 $('#start').addEventListener('click', () => {
   unlockAudio();
@@ -338,17 +308,26 @@ $('#custom-form').addEventListener('submit', event => {
 });
 function updateActivity() {
   const timerHidden = $('#timer-panel').hidden && timer.state !== 'idle';
-  const musicHidden = $('#music-panel').hidden && calmPlaying;
+  const musicHidden = $('#music-panel').hidden && !!mood && (calmPlaying || musicLoading || phonePlayer.currentSrc);
   $('#timer-activity').hidden = !timerHidden;
   $('#music-activity').hidden = !musicHidden;
+  $('#music-quick-toggle').hidden = !musicHidden;$('#music-quick-next').hidden = !musicHidden;
+  setText('#music-quick-toggle',calmPlaying || musicLoading ? 'Pause music' : 'Play music');
+  $('#music-quick-toggle').setAttribute('aria-label',calmPlaying || musicLoading ? 'Pause music' : 'Play music');
   setText('#timer-activity', `Timer · ${timer.state === 'done' ? 'time’s up' : formatTime(timer.remaining)}${timer.state === 'paused' ? ' · paused' : ''} ↗`);
   setText('#music-activity', `Music · ${moods[mood]?.name || 'playing'} ↗`);
   $('#background-activity').hidden = !(timerHidden || musicHidden);
 }
 $('#timer-activity').addEventListener('click', () => space.show('timer'));
 $('#music-activity').addEventListener('click', () => space.show('music'));
+$('#music-quick-toggle').addEventListener('click',()=>$('#calm-toggle').click());
+$('#music-quick-next').addEventListener('click',()=>skipTrack(1));
 document.addEventListener('delina:features', updateActivity);
-setInterval(() => { timer.tick(); render(); }, 200);
-document.addEventListener('visibilitychange', () => { timer.tick(); render(); });
-window.addEventListener('pagehide', () => { ++musicRequest; save(); stopMusic(); renderCalm(); });
+function refreshVisibility(){
+  document.documentElement.classList.toggle('page-hidden',document.hidden);
+  timer.tick();render();if(!document.hidden)renderMusicTime();
+}
+document.addEventListener('visibilitychange',refreshVisibility);
+window.addEventListener('pageshow',event=>{if(event.persisted)refreshVisibility();});
+window.addEventListener('pagehide', () => { ++musicRequest; ticker.stop(); save(); stopMusic(); renderCalm(); });
 render();

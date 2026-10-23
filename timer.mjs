@@ -44,3 +44,14 @@ export function formatTime(seconds) {
   const value = Math.max(0, Math.ceil(seconds));
   return `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
 }
+
+export class TimerTicker {
+ constructor(timer, onTick, {later=(fn,ms)=>setTimeout(fn,ms),cancel=id=>clearTimeout(id),hidden=()=>false,now=Date.now}={}) {
+  Object.assign(this,{timer,onTick,later,cancel,hidden,now});
+ }
+ sync(){
+  this.stop();
+  if(this.timer.state==='running')this.pending=this.later(()=>{this.pending=null;this.timer.tick(this.now());this.onTick();},this.hidden()?1000:250);
+ }
+ stop(){this.cancel(this.pending);this.pending=null;}
+}
