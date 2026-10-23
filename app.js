@@ -1,5 +1,5 @@
 import { Timer, formatTime } from './timer.mjs';
-import { Soundscape } from './soundscape.mjs';
+import { Soundscape, moods } from './soundscape.mjs';
 import { quotes, dailyQuoteIndex, dayGreeting } from './quotes.mjs';
 const $ = selector => document.querySelector(selector);
 const key = 'little-duck-v1';
@@ -17,6 +17,8 @@ let toastTimeout;
 let storageNotice = false;
 let calm;
 let calmPlaying = false;
+let mood = Object.hasOwn(moods, stored?.mood) ? stored.mood : null;
+let musicRequest = 0;
 let volume = Number.isFinite(stored?.volume) ? Math.min(1, Math.max(0, stored.volume)) : .3;
 let quoteIndex = dailyQuoteIndex();
 let lastQuoteDay = new Date().toDateString();
@@ -32,18 +34,29 @@ setInterval(() => {
   const today = new Date().toDateString();
   quoteIndex = today !== lastQuoteDay ? dailyQuoteIndex() : (quoteIndex + 1) % quotes.length;
   lastQuoteDay = today; showQuote();
-}, 60000);
+}, 30000);
 function renderCalm() {
+  const song = moods[mood];
+  $('#calm-toggle').disabled = !song;
   $('#calm-toggle').setAttribute('aria-pressed', String(calmPlaying));
-  $('#calm-label').textContent = calmPlaying ? 'A little calm is playing' : 'A little calm';
-  $('#calm-hint').textContent = calmPlaying ? 'A soft melody, a slower little moment' : 'Tap for a gentle music-box melody';
+  $('#calm-label').textContent = song ? `${song.title}${calmPlaying ? ' · playing' : ''}` : 'Pick your little soundtrack';
+  $('#calm-hint').textContent = song?.hint || 'Different feelings, different little melodies.';
   $('#calm-play').textContent = calmPlaying ? 'Ⅱ' : '▶';
+  document.querySelectorAll('[data-mood]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mood === mood)));
 }
-$('#calm-toggle').addEventListener('click', async () => {
-  if (calmPlaying) { calm.stop(); calmPlaying = false; renderCalm(); return; }
-  if (!await unlockAudio()) return;
-  calm = new Soundscape(audio, volume); calm.start(); calmPlaying = true; renderCalm();
+async function playMood() {
+  const request = ++musicRequest;
+  if (!await unlockAudio() || request !== musicRequest) return;
+  calm?.stop(); calm = new Soundscape(audio, volume, mood); calm.start(); calmPlaying = true; renderCalm();
+}
+document.querySelectorAll('[data-mood]').forEach(button => button.addEventListener('click', () => {
+  mood = button.dataset.mood; save(); renderCalm(); playMood();
+}));
+$('#calm-toggle').addEventListener('click', () => {
+  if (calmPlaying) { ++musicRequest; calm.stop(); calmPlaying = false; renderCalm(); }
+  else playMood();
 });
+renderCalm();
 $('#calm-volume').addEventListener('input', event => {
   volume = Number(event.target.value) / 100;
   if (calmPlaying) calm.setVolume(volume);
@@ -57,7 +70,7 @@ function toast(message) {
   toastTimeout = setTimeout(() => { $('#toast').hidden = true; }, 4500);
 }
 function save() {
-  try { localStorage.setItem(key, JSON.stringify({ timer: timer.snapshot(), name, hint, sound, tiny, volume })); }
+  try { localStorage.setItem(key, JSON.stringify({ timer: timer.snapshot(), name, hint, sound, tiny, volume, mood })); }
   catch { if (!storageNotice) { storageNotice = true; toast('Your browser could not save this timer. Keep this tab open.'); } }
 }
 async function unlockAudio() {
@@ -162,5 +175,5 @@ $('#custom-form').addEventListener('submit', event => {
 });
 setInterval(() => { timer.tick(); render(); }, 200);
 document.addEventListener('visibilitychange', () => { timer.tick(); render(); });
-window.addEventListener('pagehide', () => { save(); if (calm) calm.stop(); calmPlaying = false; renderCalm(); });
+window.addEventListener('pagehide', () => { ++musicRequest; save(); if (calm) calm.stop(); calmPlaying = false; renderCalm(); });
 render();
