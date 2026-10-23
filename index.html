@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="apple-mobile-web-app-title" content="Delina"><meta name="theme-color" content="#faf7ef"><meta name="description" content="A little duck, a gentle chime, and time for the good things. Meet Delina, your cozy little duck egg timer.">
+  <title>Delina · Your little duck timer</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🐥%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css"><script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="./" aria-label="Delina home"><span class="brand-icon">◒</span> delina<span class="brand-dot">✦</span></a><span class="tagline">small timer. happy moments.</span><button id="mini" class="quiet-button" aria-pressed="false"><span aria-hidden="true">↙</span> Tiny mode</button></header>
+  <main>
+    <section class="intro"><span class="eyebrow"><span></span> YOUR LITTLE KITCHEN COMPANION</span><h1>Good things take<br>a <em>little time.</em></h1><p>Put the kettle on. Let your duck watch the clock.</p></section>
+    <section class="timer-card" aria-label="Egg timer">
+      <div class="scene" id="scene">
+        <div class="scene-note"><span aria-hidden="true">✦</span> a little patience, a lot of love</div>
+        <svg class="duck" viewBox="0 0 360 340" role="img" aria-labelledby="duck-title"><title id="duck-title">Delina, a tiny yellow duck with a pink bow hairband, rosy cheeks and eyelashes, holding a green stopwatch</title>
+          <defs><linearGradient id="feather" x2="0.7" y2="1"><stop stop-color="#ffdf79"/><stop offset="1" stop-color="#f5be46"/></linearGradient><linearGradient id="head" x2="0.6" y2="1"><stop stop-color="#ffe796"/><stop offset="1" stop-color="#ffd36b"/></linearGradient></defs>
+          <ellipse cx="177" cy="300" rx="107" ry="13" fill="#c9bda6" opacity=".22"/>
+          <g class="duck-body">
+          <path d="M139 279q-21 1-30 13q-4 10 25 8l32-9" fill="#e99b45" stroke="#c88739" stroke-width="2"/>
+          <path d="M200 280q10 12 30 16q14 8-12 8l-38-10" fill="#e99b45" stroke="#c88739" stroke-width="2"/>
+          <path d="M102 204q-25-2-31-24q-10 33 13 54q2 50 73 57q80 10 94-40q16-49-29-77Z" fill="url(#feather)" stroke="#d7a84d" stroke-width="2.5"/>
+          <path d="M140 78q-10-23 7-30q3 15 18 22q-1-22 13-22q-1 15 8 26" fill="#ffda77" stroke="#d7a84d" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M112 89q-31 27-25 73q6 53 68 58q75 4 88-51q11-39-14-68q-43-47-91-23Z" fill="url(#head)" stroke="#d7a84d" stroke-width="2.5"/>
+          <!-- Delina's satin hairband follows the curve of her little head. -->
+          <g class="hairband" stroke-linejoin="round">
+            <path d="M98 111Q153 66 229 112" fill="none" stroke="#c77e98" stroke-width="15" stroke-linecap="round"/>
+            <path d="M98 108Q153 63 229 109" fill="none" stroke="#f1aac2" stroke-width="11" stroke-linecap="round"/>
+            <path d="M105 105Q155 68 222 105" fill="none" stroke="#ffd7e6" stroke-width="2.5" stroke-linecap="round"/>
+            <g transform="translate(213 88) rotate(19)">
+              <path d="M-2 0C-15-22-39-25-32-3C-43 17-17 20-2 5Z" fill="#f6b0cc" stroke="#c77e98" stroke-width="2"/>
+              <path d="M2 0C15-22 39-25 32-3C43 17 17 20 2 5Z" fill="#f6b0cc" stroke="#c77e98" stroke-width="2"/>
+              <path d="M-7 5l-14 23 14-3 5 8 8-26M7 5l13 21-12-1-5 8-6-26" fill="#f2a3c0" stroke="#c77e98" stroke-width="1.7"/>
+              <path d="m-25-8 15 8m35-8-15 8" fill="none" stroke="#ffdae8" stroke-width="3" stroke-linecap="round"/>
+              <rect x="-7" y="-6" width="14" height="17" rx="6" fill="#e98db0" stroke="#c77e98" stroke-width="2"/>
+              <path d="M-3-2v6" stroke="#ffd6e6" stroke-width="2" stroke-linecap="round"/>
+            </g>
+          </g>
+          <g class="lashes" fill="none" stroke="#574536" stroke-width="2.6" stroke-linecap="round">
+            <path d="M118 151q-7-2-8-7m13 4q-4-5-3-9m6 10q1-5 4-8M197 151q7-2 8-7m-13 4q4-5 3-9m-6 10q-1-5-4-8"/>
+          </g>
+          <ellipse cx="124" cy="157" rx="8" ry="10" fill="#493e35"/><ellipse cx="191" cy="157" rx="8" ry="10" fill="#493e35"/>
+          <circle cx="126" cy="153" r="3" fill="#fffdf5"/><circle cx="193" cy="153" r="3" fill="#fffdf5"/><circle cx="121" cy="161" r="1.3" fill="#fffdf5" opacity=".8"/><circle cx="188" cy="161" r="1.3" fill="#fffdf5" opacity=".8"/>
+          <ellipse cx="109" cy="178" rx="15" ry="9" fill="#ed96a4" opacity=".7"/><ellipse cx="211" cy="178" rx="15" ry="9" fill="#ed96a4" opacity=".7"/><path d="m104 175-1 4m7-4-1 4m97-4-1 4m7-4-1 4" stroke="#d97f91" stroke-width="1.5" stroke-linecap="round" opacity=".65"/>
+          <path d="M145 170q14-10 27 0q12 8-1 15q-14 9-28-1q-9-7 2-14Z" fill="#ed9c47" stroke="#d98b3c" stroke-width="2"/>
+          <path d="M145 177q14 4 27 0" fill="none" stroke="#c47c32" stroke-width="2" stroke-linecap="round"/>
+          <g class="watch"><rect x="206" y="194" width="19" height="12" rx="4" fill="#5e7760"/><path d="m240 210 7-7" stroke="#5e7760" stroke-width="9" stroke-linecap="round"/><circle cx="215" cy="245" r="43" fill="#78927a" stroke="#536c55" stroke-width="3"/><circle cx="215" cy="245" r="34" fill="#fcf9ec"/>
+          <circle id="watch-progress" cx="215" cy="245" r="28" fill="none" stroke="#e5b356" stroke-width="4" stroke-linecap="round" stroke-dasharray="175.93" transform="rotate(-90 215 245)"/>
+          <path d="M215 220v5m25 20h-5m-20 25v-5m-25-20h5" stroke="#a9b3a0" stroke-width="2"/>
+          <path id="watch-hand" d="M215 245v-17" stroke="#566e56" stroke-width="3" stroke-linecap="round"/><path d="m215 245 11 8" stroke="#566e56" stroke-width="3" stroke-linecap="round"/><circle cx="215" cy="245" r="3.5" fill="#566e56"/></g>
+          <path d="M155 222q-14 18 3 33q13 12 30 4q11-7 3-15q-17-6-22-18" fill="#ffd776" stroke="#d7a84d" stroke-width="2.5" stroke-linecap="round"/>
+          </g><path d="M278 178c-9-10-22 2 0 16 22-14 9-26 0-16Z" fill="#eaa5bd" opacity=".8"/><g class="sparkles" fill="#b9a37a"><path d="m71 105 3 8 8 3-8 3-3 8-3-8-8-3 8-3Z"/><path d="m278 139 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z"/><circle cx="270" cy="91" r="3"/></g>
+        </svg>
+        <div class="duck-caption"><span class="status-dot"></span><span id="duck-caption">Delina is ready when you are.</span></div>
+      </div>
+      <div class="controls"><div class="control-top"><span class="eyebrow">MAKE A LITTLE MOMENT</span><label class="sound-control" title="Toggle alarm sound"><input id="sound" type="checkbox" checked><span id="sound-label">♫ Sound on</span></label></div>
+        <h2 id="timer-name">A perfectly soft egg</h2><p class="timer-hint" id="timer-hint">A golden, runny little center.</p>
+        <div id="clock" class="clock" role="timer" aria-label="6 minutes remaining">06:00</div>
+        <div class="time-track"><div id="progress"></div></div><p class="timer-status" id="timer-status" aria-live="polite">A little pause before something lovely.</p>
+        <div class="actions"><button id="start" class="primary"><span aria-hidden="true">▶</span> Start timer</button><button id="reset" class="reset" aria-label="Reset timer" title="Reset timer">↻</button></div>
+        <button id="custom" class="custom-button">Set your own time <span aria-hidden="true">↗</span></button>
+      </div>
+    </section>
+    <section class="daily-kindness" aria-label="A little encouragement">
+      <div class="kindness-top"><span class="eyebrow" id="day-greeting">A LITTLE KINDNESS FOR YOUR DAY</span><span aria-hidden="true">♡</span></div>
+      <p class="delina-quote" id="quote">One little step is still a step. I’m proud of you.</p>
+      <div class="kindness-bottom"><span>a little note from Delina</span><button id="next-quote" class="note-button">Another little note <span aria-hidden="true">↻</span></button></div>
+    </section>
+    <section class="calm-panel" aria-label="Calming sounds">
+      <button id="calm-toggle" class="calm-toggle" aria-pressed="false"><span class="music-icon" aria-hidden="true">♫</span><span><strong id="calm-label">A little calm</strong><small id="calm-hint">Tap for a gentle music-box melody</small></span><span id="calm-play" class="calm-play" aria-hidden="true">▶</span></button>
+      <label class="volume-control" for="calm-volume">Volume<input id="calm-volume" type="range" min="0" max="100" step="1" value="30" aria-label="Calming melody volume"></label>
+    </section>
+    <section class="presets" aria-label="Quick timer presets"><div class="preset-heading"><span class="eyebrow">A TIME FOR EVERYTHING</span><span>Pick a little ritual</span></div><div class="preset-grid">
+      <button class="preset selected" data-seconds="360" data-name="A perfectly soft egg" data-hint="A golden, runny little center." aria-pressed="true"><span class="egg-icon soft" aria-hidden="true"></span><span><strong>Soft & sunny</strong><small>6 minutes · runny yolk</small></span><span class="preset-check" aria-hidden="true">✓</span></button>
+      <button class="preset" data-seconds="480" data-name="A lovely jammy egg" data-hint="That just-right, golden middle." aria-pressed="false"><span class="egg-icon jammy" aria-hidden="true"></span><span><strong>Just a little jammy</strong><small>8 minutes · soft center</small></span><span class="preset-check" aria-hidden="true">✓</span></button>
+      <button class="preset" data-seconds="660" data-name="A good, hearty egg" data-hint="Firm, comforting, and ready for toast." aria-pressed="false"><span class="egg-icon hard" aria-hidden="true"></span><span><strong>Nice & hearty</strong><small>11 minutes · firm yolk</small></span><span class="preset-check" aria-hidden="true">✓</span></button>
+      <button class="preset" data-seconds="180" data-name="A cup of something cozy" data-hint="Your favorite tea, a little me-time." aria-pressed="false"><span class="tea-icon" aria-hidden="true">☕</span><span><strong>A cozy cuppa</strong><small>3 minutes · tea break</small></span><span class="preset-check" aria-hidden="true">✓</span></button>
+    </div><p class="cooking-note">Egg timings start in boiling water. Size and temperature can change your perfect time.</p></section>
+    <footer><span>Made for the slower, sweeter things.</span><span aria-hidden="true">♡</span><span>Keep this tab open to hear Delina chime.</span></footer>
+  </main>
+  <dialog id="custom-dialog"><form id="custom-form"><button type="button" id="close-dialog" class="dialog-close" aria-label="Close">×</button><span class="eyebrow">YOUR TIME, YOUR WAY</span><h2>A little moment for…</h2><label class="field-label" for="label">What are we timing?</label><input id="label" name="label" maxlength="45" placeholder="Something lovely"><div class="time-fields"><label>Minutes<input id="minutes" name="minutes" type="number" min="0" max="99" value="5" required inputmode="numeric"></label><span>:</span><label>Seconds<input id="seconds" name="seconds" type="number" min="0" max="59" value="0" required inputmode="numeric"></label></div><p class="form-error" id="form-error" role="alert"></p><button class="primary" type="submit">Set timer <span aria-hidden="true">♡</span></button></form></dialog>
+  <div id="toast" role="status" class="toast" hidden></div>
+</body>
+</html>
